@@ -19,6 +19,7 @@ import type { ParallaxState } from './types';
 import { OCEAN_COLOR_RGB } from './types';
 import { introOceanMix, getIntroProgress } from './introState';
 import { MOON_DIR } from './Moon';
+import { aisleGridScroll } from '../../shared/aisleGridScroll';
 
 const oceanVertexShader = /* glsl */ `
   varying vec2 vWorldXZ;
@@ -40,12 +41,19 @@ const oceanFragmentShader = /* glsl */ `
   uniform vec3 uMoonDir;
   uniform vec2 uPointerXZ;
   uniform float uRippleStrength;
+  uniform vec2 uAnchorXZ;
+  uniform float uAnchorStrength;
   uniform vec3 uCloudPositions[${MAX_CLOUD_REFLECTIONS}];
   uniform float uCloudScales[${MAX_CLOUD_REFLECTIONS}];
   uniform int uCloudCount;
   uniform vec2 uOceanHalfSize;
   uniform float uOceanCenterZ;
   uniform float uIntroReveal;
+  uniform float uGridScrollX;
+  uniform float uGridLock;
+  uniform float uAisleCenterZ;
+  uniform float uAisleRowSize;
+  uniform float uAisleColSize;
 
   varying vec2 vWorldXZ;
   varying vec3 vWorldPosition;
@@ -105,6 +113,25 @@ const oceanFragmentShader = /* glsl */ `
     return h;
   }
 
+  float anchorRipples(vec2 xz, float time, out vec2 grad) {
+    grad = vec2(0.0);
+    if (uAnchorStrength < 0.01) return 0.0;
+
+    vec2 delta = xz - uAnchorXZ;
+    float dist = length(delta);
+    vec2 radial = dist > 0.001 ? delta / dist : vec2(1.0, 0.0);
+
+    float ring1 = sin(dist * 0.38 - time * 2.4) * exp(-dist * 0.012);
+    float ring2 = sin(dist * 0.24 - time * 1.6 + 1.8) * exp(-dist * 0.008) * 0.55;
+    float ring3 = sin(dist * 0.15 - time * 1.0 + 3.6) * exp(-dist * 0.005) * 0.32;
+    float h = (ring1 + ring2 + ring3) * uAnchorStrength * 0.24;
+
+    float dh = (ring1 * 0.38 + ring2 * 0.24 + ring3 * 0.15) * uAnchorStrength * 0.24;
+    grad = radial * dh;
+
+    return h;
+  }
+
   float calmOceanHeight(vec2 xz, float time, out vec2 gradient) {
     vec2 g1 = vec2(0.0);
     vec2 g2 = vec2(0.0);
@@ -112,6 +139,7 @@ const oceanFragmentShader = /* glsl */ `
     vec2 g4 = vec2(0.0);
     vec2 g5 = vec2(0.0);
     vec2 gP = vec2(0.0);
+    vec2 gA = vec2(0.0);
 
     float h = 0.0;
     h += waveComponent(xz, vec2(0.92, 0.38), 0.22, 55.0, time, g1);
@@ -120,8 +148,9 @@ const oceanFragmentShader = /* glsl */ `
     h += waveComponent(xz, vec2(0.7, 0.7), 0.06, 14.0, time, g4);
     h += waveComponent(xz, vec2(-0.8, 0.2), 0.035, 8.0, time, g5);
     h += pointerRipples(xz, time, gP);
+    h += anchorRipples(xz, time, gA);
 
-    gradient = g1 + g2 + g3 + g4 + g5 + gP;
+    gradient = g1 + g2 + g3 + g4 + g5 + gP + gA;
     return h;
   }
 
@@ -191,11 +220,20 @@ const oceanFragmentShader = /* glsl */ `
   }
 
   float binaryStreams(vec2 worldXZ, float time, float dist, float waveH) {
-    float rowSize = mix(0.85, 2.5, smoothstep(25.0, 250.0, dist));
-    float colSize = mix(0.28, 0.72, smoothstep(25.0, 250.0, dist));
+    float rowSizeFar = mix(0.85, 2.5, smoothstep(25.0, 250.0, dist));
+    float colSizeFar = mix(0.28, 0.72, smoothstep(25.0, 250.0, dist));
 
-    float row = worldXZ.y / rowSize + waveH * 0.45;
-    float col = worldXZ.x / colSize - time * 0.14 + sin(worldXZ.y * 0.12 - time * 1.7) * 0.08;
+    float aisleDist = abs(worldXZ.y - uAisleCenterZ);
+    float lockBlend = smoothstep(42.0, 5.0, aisleDist) * uGridLock;
+
+    float rowSize = mix(rowSizeFar, uAisleRowSize, lockBlend);
+    float colSize = mix(colSizeFar, uAisleColSize, lockBlend);
+
+    vec2 sampleXZ = worldXZ;
+    sampleXZ.x += uGridScrollX * lockBlend;
+
+    float row = sampleXZ.y / rowSize + waveH * 0.45;
+    float col = sampleXZ.x / colSize - time * 0.14 * (1.0 - lockBlend) + sin(sampleXZ.y * 0.12 - time * 1.7) * 0.08;
 
     float rowFrac = fract(row);
     float line = exp(-pow((rowFrac - 0.5) * 6.0, 2.0));
@@ -297,6 +335,11 @@ const oceanFragmentShader = /* glsl */ `
 
     vec3 water = mix(digital, calmSurface, surfaceMask);
 
+    float anchorDist = length(vWorldXZ - uAnchorXZ);
+    float anchorGlow = exp(-anchorDist * anchorDist * 0.0055) * uAnchorStrength;
+    float anchorPulse = 0.82 + 0.18 * sin(uTime * 1.8 + anchorDist * 0.08);
+    water += vec3(0.06, 0.32, 0.62) * anchorGlow * anchorPulse * 0.55;
+
     float distFromCenterX = abs(vWorldXZ.x);
     float distFromCenterZ = abs(vWorldXZ.y - uOceanCenterZ);
     float geomEdgeFade = (1.0 - smoothstep(uOceanHalfSize.x * 0.84, uOceanHalfSize.x * 0.98, distFromCenterX));
@@ -328,6 +371,8 @@ function buildUniforms() {
     uMoonDir: { value: MOON_DIR.clone() },
     uPointerXZ: { value: new THREE.Vector2(0, -200) },
     uRippleStrength: { value: 0 },
+    uAnchorXZ: { value: new THREE.Vector2(0, -200) },
+    uAnchorStrength: { value: 0 },
     uCloudPositions: {
       value: Array.from({ length: MAX_CLOUD_REFLECTIONS }, () => new THREE.Vector3()),
     },
@@ -336,6 +381,11 @@ function buildUniforms() {
     uOceanHalfSize: { value: new THREE.Vector2(OCEAN_WIDTH * 0.5, OCEAN_DEPTH * 0.5) },
     uOceanCenterZ: { value: OCEAN_CENTER[2] },
     uIntroReveal: { value: 1 },
+    uGridScrollX: { value: 0 },
+    uGridLock: { value: 0 },
+    uAisleCenterZ: { value: -42 },
+    uAisleRowSize: { value: 2.0 },
+    uAisleColSize: { value: 2.05 },
   };
 }
 
@@ -347,9 +397,26 @@ const _smoothedPointer = new THREE.Vector2(0, -200);
 interface OceanProps {
   cloudCount?: number;
   parallax?: ParallaxState | null;
+  /** Persistent ripple center in world XZ (e.g. datacenter anchor) */
+  anchorXZ?: [number, number];
+  anchorRippleStrength?: number;
+  /** Lock binary grid columns to datacenter scroll (endless aisle) */
+  syncGridScroll?: boolean;
+  aisleCenterZ?: number;
+  aisleRowSize?: number;
+  aisleColSize?: number;
 }
 
-export function Ocean({ cloudCount = 8, parallax = null }: OceanProps) {
+export function Ocean({
+  cloudCount = 8,
+  parallax = null,
+  anchorXZ,
+  anchorRippleStrength = 0,
+  syncGridScroll = false,
+  aisleCenterZ = -42,
+  aisleRowSize = 2.0,
+  aisleColSize = 2.05,
+}: OceanProps) {
   const uniforms = useMemo(() => buildUniforms(), []);
   const { camera, gl } = useThree();
   const rippleStrength = useRef(0);
@@ -398,6 +465,25 @@ export function Ocean({ cloudCount = 8, parallax = null }: OceanProps) {
         0,
         0.08,
       );
+    }
+
+    if (anchorXZ && anchorRippleStrength > 0) {
+      uniforms.uAnchorXZ.value.set(anchorXZ[0], anchorXZ[1]);
+      uniforms.uAnchorStrength.value = anchorRippleStrength * introOceanMix(getIntroProgress());
+    } else {
+      uniforms.uAnchorStrength.value = THREE.MathUtils.lerp(uniforms.uAnchorStrength.value, 0, 0.06);
+    }
+
+    uniforms.uAisleCenterZ.value = aisleCenterZ;
+    uniforms.uAisleRowSize.value = aisleRowSize;
+    uniforms.uAisleColSize.value = aisleColSize;
+
+    if (syncGridScroll) {
+      uniforms.uGridScrollX.value = aisleGridScroll.x;
+      uniforms.uGridLock.value = aisleGridScroll.lock * introOceanMix(getIntroProgress());
+    } else {
+      uniforms.uGridScrollX.value = 0;
+      uniforms.uGridLock.value = THREE.MathUtils.lerp(uniforms.uGridLock.value, 0, 0.08);
     }
 
     const positions = uniforms.uCloudPositions.value as THREE.Vector3[];

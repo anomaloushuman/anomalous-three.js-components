@@ -20,6 +20,7 @@ import {
   viewLane,
   type GridCell,
 } from './gridPlacement';
+import { kindForId, PIECE_SPEED_MUL, PIECE_SPIN_MUL } from './pieceMotion';
 
 interface FloatingPeopleIconsProps {
   count?: number;
@@ -37,28 +38,32 @@ function randomIn(rand: () => number, min: number, max: number) {
   return min + rand() * (max - min);
 }
 
-function createSlot(
-  id: number,
-  rand: () => number,
-  cell: GridCell,
-  spawnDelay = 0,
-): PersonSlot {
+function createSlot(id: number, rand: () => number, cell: GridCell, spawnDelay = 0): PersonSlot {
+  const kind = kindForId(id);
+  const [speedLo, speedHi] = PIECE_SPEED_MUL[kind];
+  const baseSpeed = randomIn(rand, ASCEND_SPEED_MIN, ASCEND_SPEED_MAX);
+
   return {
     id,
+    kind,
     x: cell.x,
     y: SPAWN_Y,
     z: cell.z,
-    scale: ICON_SIZE,
+    scale: ICON_SIZE * (0.94 + rand() * 0.12),
     phase: rand() * Math.PI * 2,
-    speed: randomIn(rand, ASCEND_SPEED_MIN, ASCEND_SPEED_MAX),
+    speed: baseSpeed * randomIn(rand, speedLo, speedHi),
     swayAmp: 0,
     swayFreq: 0.2,
+    yaw: rand() * Math.PI * 2,
+    tilt: (rand() - 0.5) * 0.12,
+    spinMul: PIECE_SPIN_MUL[kind],
     appear: 0,
     spawnDelay,
   };
 }
 
 function applySlot(slot: PersonSlot, next: PersonSlot) {
+  slot.kind = next.kind;
   slot.x = next.x;
   slot.y = next.y;
   slot.z = next.z;
@@ -67,6 +72,9 @@ function applySlot(slot: PersonSlot, next: PersonSlot) {
   slot.speed = next.speed;
   slot.swayAmp = next.swayAmp;
   slot.swayFreq = next.swayFreq;
+  slot.yaw = next.yaw;
+  slot.tilt = next.tilt;
+  slot.spinMul = next.spinMul;
   slot.appear = next.appear;
   slot.spawnDelay = next.spawnDelay;
 }

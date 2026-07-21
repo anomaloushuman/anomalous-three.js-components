@@ -113,7 +113,8 @@ Glass chess pieces (pawn, rook, bishop, knight) that spawn centered on a glowing
 |------|------|---------|-------------|
 | `className` | `string` | — | CSS class on the wrapper |
 | `style` | `CSSProperties` | — | Inline styles on the wrapper |
-| `peopleCount` | `number` | `10` | Number of simultaneously floating pieces |
+| `peopleCount` | `number` | `14` | Number of simultaneously floating pieces |
+| `maxActivePieces` | `number` | `14` | Alias for density tuning (overrides `peopleCount` when set) |
 | `interactive` | `boolean` | `true` | Mouse/touch camera parallax |
 | `autoRotate` | `boolean` | `false` | Subtle ambient camera drift |
 | `introAnimation` | `boolean` | `true` | Animate camera and elements in on mount |
@@ -122,6 +123,7 @@ Glass chess pieces (pawn, rook, bishop, knight) that spawn centered on a glowing
 
 - Pieces spawn on the **centers of major 4×4 grid squares** (glowing line intersections)
 - On load, pieces **materialize onto the grid** in a near→far wave, then ascend
+- **Piece-type motion**: pawns rise faster; rooks slower / more majestic; random yaw on spawn
 - Spawns avoid overlapping cells and camera sightline stacking
 - Recycled pieces respawn on free grid cells with the same entrance transition
 - GLB models live under `src/components/StaffingScene/models/` and are bundled with the library
@@ -132,7 +134,7 @@ import { StaffingScene } from 'anomalous-three.js-components';
 export default function StaffingHero() {
   return (
     <div style={{ height: '100vh' }}>
-      <StaffingScene peopleCount={10} interactive />
+      <StaffingScene maxActivePieces={14} interactive />
     </div>
   );
 }

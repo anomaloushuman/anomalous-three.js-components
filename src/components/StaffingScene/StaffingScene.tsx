@@ -70,7 +70,8 @@ function SceneContent({
 export function StaffingScene({
   className,
   style,
-  peopleCount = 10,
+  peopleCount,
+  maxActivePieces,
   interactive = true,
   autoRotate = false,
   introAnimation = true,
@@ -79,6 +80,7 @@ export function StaffingScene({
   const containerRef = useRef<HTMLDivElement>(null);
   const shaderOnlyIntro = useMemo(() => prefersShaderOnlyIntro(), []);
   const [revealed, setRevealed] = useState(!introAnimation || shaderOnlyIntro);
+  const activePieceCount = maxActivePieces ?? peopleCount ?? 14;
 
   useEffect(() => {
     setIntroEnabled(introAnimation);
@@ -120,7 +122,7 @@ export function StaffingScene({
         }}
       >
         <SceneContent
-          peopleCount={peopleCount}
+          peopleCount={activePieceCount}
           interactive={interactive}
           autoRotate={autoRotate}
           introAnimation={introAnimation}

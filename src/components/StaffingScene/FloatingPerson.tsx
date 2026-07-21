@@ -38,14 +38,19 @@ export function FloatingPerson({ slot }: FloatingPersonProps) {
 
     const swayX = Math.sin(t * slot.swayFreq + slot.phase) * slot.swayAmp;
     const swayZ = Math.cos(t * slot.swayFreq * 0.7 + slot.phase) * slot.swayAmp * 0.5;
-    const bob = slot.appear >= 1 ? Math.sin(t * 1.2 + slot.phase) * 0.04 : 0;
+    const bob = slot.appear >= 1 ? Math.sin(t * 1.05 + slot.phase) * 0.04 : 0;
 
     // Settle onto the grid from slightly below while fading/scaling in.
     const settle = (1 - enter) * 2.2;
+    const worldScale = slot.scale * (0.2 + 0.8 * enter);
 
     groupRef.current.position.set(slot.x + swayX, slot.y + bob - settle, slot.z + swayZ);
-    groupRef.current.scale.setScalar(slot.scale * (0.2 + 0.8 * enter));
-    groupRef.current.rotation.y = t * 0.04 + slot.phase * 0.35;
+    groupRef.current.scale.setScalar(worldScale);
+    groupRef.current.rotation.set(
+      slot.tilt,
+      slot.yaw + t * 0.035 * slot.spinMul,
+      slot.tilt * 0.35,
+    );
     groupRef.current.visible = visibility > 0.02;
 
     glassMaterial.opacity = baseOpacity * visibility;
@@ -54,7 +59,7 @@ export function FloatingPerson({ slot }: FloatingPersonProps) {
 
   return (
     <group ref={groupRef}>
-      <ChessPiece kind={(['pawn', 'rook', 'bishop', 'knight'] as const)[slot.id % 4]} material={glassMaterial} />
+      <ChessPiece kind={slot.kind} material={glassMaterial} />
     </group>
   );
 }

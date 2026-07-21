@@ -67,7 +67,7 @@ export function App() {
       ) : scene === 'datacenter' ? (
         <NightSkyDataCenterScene key="datacenter" starCount={2500} interactive />
       ) : (
-        <StaffingScene key="staffing" peopleCount={10} interactive />
+        <StaffingScene key="staffing" peopleCount={14} interactive />
       )}
 
       <div

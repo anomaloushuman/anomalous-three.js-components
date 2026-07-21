@@ -7,6 +7,7 @@ export default defineConfig(({ command }) => {
   const isBuild = command === 'build';
 
   return {
+    assetsInclude: ['**/*.glb'],
     plugins: [
       react(),
       ...(isBuild
@@ -26,6 +27,7 @@ export default defineConfig(({ command }) => {
     },
     build: isBuild
       ? {
+          assetsInlineLimit: 0,
           lib: {
             entry: resolve(__dirname, 'src/index.ts'),
             name: 'AnomalousThreeJsComponents',

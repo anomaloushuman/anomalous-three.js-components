@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { NightSkyCloudScene } from '../components/NightSkyCloudScene/NightSkyCloudScene';
 import { NightSkyDataCenterScene } from '../components/NightSkyDataCenterScene/NightSkyDataCenterScene';
+import { StaffingScene } from '../components/StaffingScene/StaffingScene';
 
-type DemoScene = 'cloud' | 'datacenter';
+type DemoScene = 'cloud' | 'datacenter' | 'staffing';
 
 const SCENE_HINTS: Record<DemoScene, string> = {
   cloud: 'Night Sky Cloud Scene — move pointer to parallax, hover clouds to glow',
   datacenter: 'Night Sky Data Center — endless server rows flowing on the digital ocean',
+  staffing: 'Staffing Scene — floating chess pieces over the digital grid',
 };
 
 export function App() {
@@ -56,13 +58,16 @@ export function App() {
         >
           <option value="cloud">Night Sky Cloud</option>
           <option value="datacenter">Night Sky Data Center</option>
+          <option value="staffing">Staffing</option>
         </select>
       </div>
 
       {scene === 'cloud' ? (
         <NightSkyCloudScene key="cloud" cloudCount={30} starCount={2500} interactive />
-      ) : (
+      ) : scene === 'datacenter' ? (
         <NightSkyDataCenterScene key="datacenter" starCount={2500} interactive />
+      ) : (
+        <StaffingScene key="staffing" peopleCount={10} interactive />
       )}
 
       <div
